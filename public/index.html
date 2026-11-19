@@ -212,6 +212,22 @@ async function ask(){
     inp.value=''; inp.style.height='auto';
     return devCommand(text);
   }
+    // DATE-TIME - JAB PUCHE TAB BATAYE
+  let low = text.toLowerCase();
+  if(!selectedImg && (low.includes('date') || low.includes('tarikh') || low.includes('din') || low.includes('time') || low.includes('baje') || low.includes('samay') || low.includes('aaj'))){
+    if(text) addMsg(text,'user');
+    inp.value=''; inp.style.height='auto';
+    let now = new Date();
+    let day = now.toLocaleDateString('en-IN',{weekday:'long'});
+    let date = now.toLocaleDateString('en-IN',{day:'numeric', month:'long', year:'numeric'});
+    let time = now.toLocaleTimeString('en-IN',{hour:'numeric', minute:'2-digit', hour12:true});
+    let ans = 'Aaj ' + day + ' hai.<br>Date: ' + date + '<br>Time: ' + time + ' ho raha hai.';
+    addMsg(ans,'ai');
+    history.push({role:"user",content:text});
+    history.push({role:"assistant",content:ans});
+    saveCurrentChat();
+    return;
+  }
   if(text) addMsg(text,'user');
   if(selectedImg){ let d=document.createElement('div'); d.className='msg user'; d.innerHTML=`<img src="${selectedImg}" class="rounded-xl max-w-[200px]">`; chatBox.appendChild(d); saveCurrentChat(); }
   inp.value=''; inp.style.height='auto';
