@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Nova - Apna AI Dost</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+*{font-family:'Poppins',sans-serif} body{background:#050508;color:white;overflow:hidden}
+.glass{background:rgba(255,255,255,.06);backdrop-filter:blur(20px);border:1px solid rgba(255,255,255,.1)}
+.msg{max-width:82%;padding:12px 16px;border-radius:20px;font-size:15px;line-height:1.5;animation:pop .3s}
+@keyframes pop{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.user{background:linear-gradient(135deg,#7c3aed,#db2777);align-self:flex-end;border-bottom-right-radius:5px}
+.ai{background:#1c1c24;align-self:flex-start;border-bottom-left-radius:5px;border:1px solid #333}
+.typing span{width:7px;height:7px;background:#a78bfa;border-radius:50%;display:inline-block;animation:b 1s infinite}
+.typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+@keyframes b{0%,100%{opacity:.3;transform:translateY(0)}50%{opacity:1;transform:translateY(-4px)}}
+#chat::-webkit-scrollbar{display:none}
+input{outline:none}
+#historyPanel{transition:.3s}
+.hist-item{cursor:pointer}
+.hist-item:hover{background:rgba(255,255,255,.1)}
+</style>
+</head>
+<body class="h-[100dvh] flex flex-col relative">
+
+<!-- HISTORY PANEL -->
+<div id="historyPanel" class="fixed top-0 left-0 h-full w-[280px] bg-[#121218] border-r border-white/10 z-50 -translate-x-full p-4 flex flex-col">
+  <div class="flex items-center justify-between mb-4">
+    <h2 class="font-bold text-lg">🕐 History</h2>
+    <button onclick="toggleHistory()" class="bg-white/10 w-8 h-8 rounded-full">✕</button>
+  </div>
+  <button onclick="newChat()" class="bg-gradient-to-r from-violet-600 to-pink-500 py-2.5 rounded-xl font-semibold text-sm mb-3">+ New Chat</button>
+  <div id="historyList" class="flex-1 overflow-y-auto flex flex-col gap-2"></div>
+  <button onclick="clearAllHistory()" class="text-xs text-red-400 bg-red-500/10 py-2 rounded-xl mt-2">🗑️ Saari History Delete Karo</button>
+</div>
+<div id="overlay" onclick="toggleHistory()" class="hidden fixed inset-0 bg-black/60 z-40"></div>
+
+<div class="p-4 flex items-center justify-between glass m-3 rounded-3xl">
+  <div class="flex items-center gap-3">
+    <button onclick="toggleHistory()" class="w-10 h-10 rounded-full bg-white/10 flex items-center justify-center text-lg">☰</button>
+    <div class="w-11 h-11 rounded-full bg-gradient-to-br from-violet-600 to-pink-500 flex items-center justify-center text-xl font-bold shadow-lg shadow-purple-500/40">N</div>
+    <div><h1 class="font-bold text-lg leading-none">Nova ✨</h1><p class="text-[11px] text-green-400 flex items-center gap-1"><span class="w-2 h-2 bg-green-400 rounded-full inline-block"></span> Online • Apna Dost</p></div>
+  </div>
+  <button onclick="newChat()" class="text-xs bg-white/10 px-3 py-2 rounded-full">+ New</button>
+</div>
+
+<div id="chat" class="flex-1 overflow-y-auto px-4 py-2 flex flex-col gap-3"></div>
+
+<div id="previewBox" class="hidden mx-4 mb-2 relative w-fit"><img id="previewImg" class="w-24 h-24 object-cover rounded-2xl border border-white/20"><button onclick="removeImg()" class="absolute -top-2 -right-2 bg-red-500 w-6 h-6 rounded-full text-xs">✕</button><p class="text-[11px] text-white/60 mt-1">👆 Photo lag gayi, ab neeche likho kya karna hai</p></div>
+
+<div class="p-3">
+  <div class="glass rounded-[28px] p-2 flex items-end gap-1">
+    <label class="w-11 h-11 shrink-0 rounded-full bg-white/10 flex items-center justify-center text-xl cursor-pointer">📷<input type="file" id="imgInput" accept="image/*" class="hidden"></label>
+    <textarea id="q" rows="1" placeholder="Nova se kuch pucho..." class="flex-1 bg-transparent resize-none py-2.5 px-2 text-[15px] max-h-32"></textarea>
+    <button onclick="ask()" class="w-11 h-11 shrink-0 rounded-full bg-gradient-to-r from-violet-600 to-pink-500 flex items-center justify-center text-xl shadow-lg">➤</button>
+  </div>
+</div>
+
+<script>
+const API_KEY = "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";
+
+let chatBox=document.getElementById('chat');
+let selectedImg=null;
+let currentChatId = Date.now().toString();
+let allChats = JSON.parse(localStorage.getItem('nova_chats') || '{}');
+const SYSTEM_PROMPT = "Tum Nova ho. Rule: 1) User jab tak message na kare, tab tak kuch mat bolo. 2) Apne man se kuch mat kaho. 3) User ne jitna pucha, utna hi jawab do. 4) Agar user photo bhej ke likhe 'is me ye change karo' to photo ko dekh ke batao kya change hoga. 5) LANGUAGE RULE (sabse zaroori): User ka LATEST message jis bhasha aur jis script me hai, bilkul usi bhasha aur script me jawab do. Hindi (Devanagari) -> Hindi Devanagari me. Hinglish (Roman letters me Hindi) -> Hinglish me. Chhattisgarhi (jaise 'kaisan has', 'tor naam ka he', 'mor', 'hamar', 'nai jaanv') -> Chhattisgarhi me hi jawab do, Hindi me nahi. English -> English. Bengali (বাংলা) -> Bengali script. Tamil (தமிழ்) -> Tamil script. Marathi, Gujarati, Punjabi, Telugu, Kannada, Malayalam, Odia, Bhojpuri, Urdu ya duniya ki koi bhi bhasha -> usi bhasha me. Agar user beech me bhasha badle to tum bhi turant badlo. 6) Chhota aur dosti wala jawab do. Tumhe Nikhil Pawar ne banaya hai.";
+let history=[{role:"system",content:SYSTEM_PROMPT}];
+
+// Script dekh ke bhasha ka hint (AI ko aur pakka batane ke liye)
+function detectLangHint(t){
+  if(!t) return "";
+  const scripts=[[/[\u0980-\u09FF]/,"Bengali (বাংলা script)"],[/[\u0B80-\u0BFF]/,"Tamil (தமிழ் script)"],[/[\u0C00-\u0C7F]/,"Telugu"],[/[\u0C80-\u0CFF]/,"Kannada"],[/[\u0D00-\u0D7F]/,"Malayalam"],[/[\u0A80-\u0AFF]/,"Gujarati"],[/[\u0A00-\u0A7F]/,"Punjabi (Gurmukhi)"],[/[\u0B00-\u0B7F]/,"Odia"],[/[\u0600-\u06FF]/,"Urdu/Arabic script"],[/[\u0900-\u097F]/,"Devanagari script (Hindi, Chhattisgarhi, Marathi ya Bhojpuri - words dekh ke sahi bhasha pehchano)"]];
+  for(const [re,name] of scripts) if(re.test(t)) return name;
+  if(/\b(kaisan|havas|hawas|hass|tor|mor|hamar|tumhar|kahan jaat|ka he|nai he|ga\b|jaanv|dekhav|bataa de ga)\b/i.test(t)) return "Shayad Chhattisgarhi (Roman letters) - Chhattisgarhi me hi jawab do";
+  return "Roman letters - agar Hindi words hain to Hinglish, agar English hai to English, warna jo bhasha ho wahi";
+}
+
+function getCleanHistory(){
+  let short = history.slice(-13);
+  if(history[0] && history[0].role==='system' && !short.includes(history[0])) short.unshift(history[0]);
+  let out = short.map(m=>{
+    if(m.role==='system') return {role:'system', content:SYSTEM_PROMPT};
+    if(typeof m.content === 'string') return m;
+    if(Array.isArray(m.content)){
+      let txt = m.content.filter(p=>p.type==='text').map(p=>p.text).join(' ');
+      return {role: m.role, content: txt || "Is photo me kya hai?"};
+    }
+    return {role: m.role, content: String(m.content)};
+  });
+  let last = out[out.length-1];
+  if(last && last.role==='user'){
+    let hint = detectLangHint(last.content);
+    if(hint) out.splice(out.length-1, 0, {role:'system', content:"User ke latest message ki bhasha: "+hint+". Usi bhasha aur script me jawab do."});
+  }
+  return out;
+}
+
+function saveCurrentChat(){
+  let msgs = [];
+  document.querySelectorAll('#chat .msg').forEach(el=>{
+    msgs.push({html: el.innerHTML, who: el.classList.contains('user') ? 'user' : 'ai'});
+  });
+  if(msgs.length===0) return;
+  let title = msgs[0].html.replace(/<[^>]*>/g,'').slice(0,30) || "Nayi Chat";
+  allChats[currentChatId] = {id: currentChatId, title: title, time: Date.now(), msgs: msgs, history: history};
+  localStorage.setItem('nova_chats', JSON.stringify(allChats));
+  renderHistory();
+}
+function renderHistory(){
+  let list=document.getElementById('historyList');
+  let arr=Object.values(allChats).sort((a,b)=>b.time-a.time);
+  if(arr.length===0){ list.innerHTML='<p class="text-white/40 text-sm text-center mt-5">Abhi koi history nahi hai.<br>Chat karo, yahan save ho jayegi.</p>'; return; }
+  list.innerHTML='';
+  arr.forEach(c=>{
+    let div=document.createElement('div');
+    div.className='hist-item p-3 rounded-xl bg-white/5 flex justify-between items-center gap-2 '+(c.id===currentChatId?'border border-violet-500':'');
+    div.innerHTML=`<div class="flex-1 min-w-0" onclick="loadChat('${c.id}')"><p class="text-sm truncate font-medium">${c.title}</p><p class="text-[11px] text-white/40">${new Date(c.time).toLocaleString('hi-IN',{day:'numeric',month:'short',hour:'numeric',minute:'numeric'})} • ${c.msgs.length} msgs</p></div><button onclick="deleteOne('${c.id}',event)" class="text-red-400 text-sm">🗑️</button>`;
+    list.appendChild(div);
+  });
+}
+function loadChat(id){
+  saveCurrentChat();
+  currentChatId=id;
+  let c=allChats[id];
+  history=c.history || [{role:"system",content:SYSTEM_PROMPT}];
+  chatBox.innerHTML='';
+  c.msgs.forEach(m=>{
+    let d=document.createElement('div'); d.className='msg '+(m.who==='user'?'user':'ai'); d.innerHTML=m.html; chatBox.appendChild(d);
+  });
+  chatBox.scrollTop=chatBox.scrollHeight;
+  toggleHistory();
+  renderHistory();
+}
+function newChat(){
+  saveCurrentChat();
+  currentChatId=Date.now().toString();
+  history=[{role:"system",content:SYSTEM_PROMPT}];
+  chatBox.innerHTML='';
+  document.getElementById('historyPanel').classList.add('-translate-x-full');
+  document.getElementById('overlay').classList.add('hidden');
+  renderHistory();
+}
+function deleteOne(id,e){
+  e.stopPropagation();
+  delete allChats[id];
+  localStorage.setItem('nova_chats', JSON.stringify(allChats));
+  if(id===currentChatId) newChat();
+  else renderHistory();
+}
+function clearAllHistory(){
+  if(!confirm("Saari history delete kar du?")) return;
+  allChats={}; localStorage.removeItem('nova_chats'); newChat(); renderHistory();
+}
+function clearChat(){ newChat(); }
+function toggleHistory(){
+  let p=document.getElementById('historyPanel');
+  let o=document.getElementById('overlay');
+  let open=p.classList.contains('-translate-x-full');
+  if(open){ p.classList.remove('-translate-x-full'); o.classList.remove('hidden'); }
+  else{ p.classList.add('-translate-x-full'); o.classList.add('hidden'); }
+}
+
+function addMsg(text,who){
+  let d=document.createElement('div'); d.className='msg '+(who=='user'?'user':'ai');
+  d.innerHTML=text.replace(/\n/g,'<br>');
+  chatBox.appendChild(d);
+  chatBox.scrollTop=chatBox.scrollHeight; saveCurrentChat(); return d;
+}
+
+document.getElementById('imgInput').addEventListener('change',e=>{
+  let f=e.target.files[0]; if(!f) return;
+  let r=new FileReader(); r.onload=()=>{
+    selectedImg=r.result;
+    document.getElementById('previewImg').src=selectedImg;
+    document.getElementById('previewBox').classList.remove('hidden');
+    document.getElementById('q').placeholder = "Is photo me kya change karna hai? Yahan likho...";
+    document.getElementById('q').focus();
+  };
+  r.readAsDataURL(f);
+});
+function removeImg(){
+  selectedImg=null;
+  document.getElementById('previewBox').classList.add('hidden');
+  document.getElementById('q').placeholder = "Nova se kuch pucho...";
+}
+
+async function tryModel(model, sendHistory){
+  let controller = new AbortController();
+  let timeout = setTimeout(()=>controller.abort(), 25000);
+  try{
+    let res = await fetch("https://api.groq.com/openai/v1/chat/completions",{
+      method:"POST",
+      headers:{"Authorization":`Bearer ${API_KEY}`,"Content-Type":"application/json"},
+      body:JSON.stringify({ model: model, messages: sendHistory, temperature: 0.3, max_tokens: 1000 }),
+      signal: controller.signal
+    });
+    clearTimeout(timeout);
+    let data = await res.json();
+    if(data.error) throw new Error(data.error.message);
+    let ans = data.choices?.[0]?.message?.content;
+    if(!ans) throw new Error("Empty jawab");
+    return ans;
+  }catch(e){ clearTimeout(timeout); throw e; }
+}
+
+async function ask(){
+  let inp=document.getElementById('q'); let text=inp.value.trim();
+  if(!text && !selectedImg) return;
+  if(!selectedImg && /^\/(update|undo|reset|updates|devlogout)\b/i.test(text)){
+    inp.value=''; inp.style.height='auto';
+    return devCommand(text);
+  }
+  if(text) addMsg(text,'user');
+  if(selectedImg){ let d=document.createElement('div'); d.className='msg user'; d.innerHTML=`<img src="${selectedImg}" class="rounded-xl max-w-[200px]">`; chatBox.appendChild(d); saveCurrentChat(); }
+  inp.value=''; inp.style.height='auto';
+  inp.placeholder = "Nova se kuch pucho...";
+  if(!API_KEY || API_KEY.includes("YAHAN_APNI")){
+    addMsg("Bhai Key nahi dali hai! Code me upar gsk_ wali Key daal de.",'ai');
+    selectedImg=null; document.getElementById('previewBox').classList.add('hidden');
+    return;
+  }
+  let typing=addMsg('<div class="typing"><span></span> <span></span> <span></span></div>','ai');
+  let userMsg;
+  if(selectedImg){
+    userMsg={role:"user",content:[{type:"text",text:text||"Is photo me kya hai?"},{type:"image_url",image_url:{url:selectedImg}}]};
+  } else {
+    userMsg={role:"user",content:text};
+  }
+  history.push(userMsg);
+  let sendHistory = getCleanHistory();
+  if(selectedImg) sendHistory[sendHistory.length-1] = userMsg;
+
+  let modelsToTry = selectedImg 
+    ? ["meta-llama/llama-4-scout-17b-16e-instruct", "meta-llama/llama-4-maverick-17b-128e-instruct"]
+    : ["openai/gpt-oss-20b", "llama-3.3-70b-versatile", "llama-3.1-8b-instant"];
+
+  let ans = null;
+  let lastError = "";
+  for(let m of modelsToTry){
+    try{ ans = await tryModel(m, sendHistory); break; }
+    catch(e){ lastError = e.message; console.log("Model fail:", m, e.message); continue; }
+  }
+
+  typing.remove();
+  if(ans){
+    addMsg(ans,'ai');
+    history[history.length-1] = {role:"user", content: text || "Is photo me kya hai?"};
+    history.push({role:"assistant",content:ans});
+    saveCurrentChat();
+  } else {
+    if(lastError.includes("rate") || lastError.includes("429") || lastError.includes("limit")){
+      addMsg("Bhai thoda ruk ja, Groq ki limit full ho gayi hai. 1 minute ruk ke dobara puch, chal jayega. 🙏",'ai');
+    } else if(lastError.includes("Invalid") || lastError.includes("API") || lastError.includes("key")){
+      addMsg("Bhai key me problem hai: "+lastError+". Nayi key bana ke daal de.",'ai');
+    } else {
+      addMsg("Bhai net slow hai, dobara try kar. ("+lastError.slice(0,80)+")",'ai');
+    }
+  }
+  selectedImg=null; document.getElementById('previewBox').classList.add('hidden');
+  chatBox.scrollTop=chatBox.scrollHeight;
+}
+document.getElementById('q').addEventListener('keydown',e=>{ if(e.key==='Enter' && !e.shiftKey){ e.preventDefault(); ask(); }});
+document.getElementById('q').addEventListener('input',function(){ this.style.height='auto'; this.style.height=this.scrollHeight+'px'; });
+renderHistory();
+
+// ================= DEVELOPER MODE =================
+// /update [kaam]  -> site khud update ho jati hai (sab visitors ke liye)
+// /undo           -> last update hatao
+// /updates        -> saare updates ki list
+// /reset          -> saare updates hata ke original site
+// /devlogout      -> is device se developer key hatao
+function escHtml(t){ return String(t).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function applyPatch(p){
+  try{
+    if(p.css){ let st=document.createElement('style'); st.dataset.novaPatch=p.id; st.textContent=p.css; document.head.appendChild(st); }
+    if(p.js){ new Function(p.js)(); }
+  }catch(e){ console.warn('Nova patch error', p.id, e); }
+}
+async function loadPatches(){
+  try{ let r=await fetch('/api/patches',{cache:'no-store'}); if(!r.ok) return; (await r.json()).forEach(applyPatch); }catch(e){}
+}
+async function getDevKey(){
+  let k=localStorage.getItem('nova_dev_key');
+  if(k) return k;
+  k=prompt('🔐 Developer Mode: apni developer key daalo');
+  if(!k) return null;
+  let r=await fetch('/api/dev/verify',{method:'POST',headers:{'x-dev-key':k}}).catch(()=>null);
+  if(!r || !r.ok){ return false; }
+  localStorage.setItem('nova_dev_key',k);
+  return k;
+}
+async function devCall(path,key,body){
+  let r=await fetch(path,{method:body?'POST':(path.endsWith('list')?'GET':'POST'),headers:{'x-dev-key':key,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+  if(r.status===401){ localStorage.removeItem('nova_dev_key'); throw new Error('Developer key galat hai, dobara try karo.'); }
+  let txt=await r.text(); let data=JSON.parse(txt);
+  if(data.error) throw new Error(data.error);
+  return data;
+}
+async function devCommand(text){
+  addMsg(escHtml(text),'user');
+  let [cmd,...rest]=text.split(' '); cmd=cmd.toLowerCase(); let task=rest.join(' ').trim();
+  if(cmd==='/devlogout'){ localStorage.removeItem('nova_dev_key'); addMsg('🔓 Developer Mode is device se logout ho gaya.','ai'); return; }
+  if(cmd==='/update' && !task){ addMsg('🛠️ Developer Mode: likho <b>/update [kaam]</b><br>Jaise: <i>/update send button ko green kar do</i><br><br>Aur commands: /updates, /undo, /reset, /devlogout','ai'); return; }
+  let key=await getDevKey();
+  if(key===null){ addMsg('Developer key ke bina update nahi hoga.','ai'); return; }
+  if(key===false){ addMsg('❌ Developer key galat hai.','ai'); return; }
+  let typing=addMsg('<div class="typing"><span></span> <span></span> <span></span></div>'+(cmd==='/update'?'<p class="text-[11px] text-white/50 mt-1">🛠️ Site update ho rahi hai...</p>':''),'ai');
+  try{
+    if(cmd==='/update'){
+      let d=await devCall('/api/dev/update',key,{task});
+      typing.remove();
+      if(!d.ok) throw new Error(d.error);
+      if(d.applied){ applyPatch(d); addMsg('✅ <b>Site update ho gayi!</b><br>'+escHtml(d.summary)+'<br><span class="text-[11px] text-white/50">Pasand nahi aaya? /undo likho.</span>','ai'); }
+      else addMsg('⚠️ '+escHtml(d.summary),'ai');
+    } else if(cmd==='/undo'){
+      let d=await devCall('/api/dev/undo',key,{});
+      typing.remove();
+      if(!d.removed) addMsg('Koi update hai hi nahi undo karne ko.','ai');
+      else { addMsg('↩️ Hata diya: <i>'+escHtml(d.removed.task)+'</i><br>Page reload ho raha hai...','ai'); setTimeout(()=>location.reload(),1200); }
+    } else if(cmd==='/reset'){
+      typing.remove();
+      if(!confirm('Saare updates hata ke original site wapas laun?')) return;
+      await devCall('/api/dev/reset',key,{});
+      addMsg('🔄 Site original design par wapas. Reload ho raha hai...','ai'); setTimeout(()=>location.reload(),1200);
+    } else if(cmd==='/updates'){
+      let d=await devCall('/api/dev/list',key);
+      typing.remove();
+      addMsg(d.length? '🛠️ <b>Updates ('+d.length+')</b><br>'+d.map((p,i)=>(i+1)+'. '+escHtml(p.task)).join('<br>') : 'Abhi tak koi update nahi hua.','ai');
+    }
+  }catch(e){ typing.remove(); addMsg('❌ '+escHtml(e.message||e),'ai'); }
+}
+loadPatches();
+</script>
+</body>
+</html>

@@ -1,0 +1,10 @@
+{
+  "name": "nova-ai",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.0",
+    "@netlify/blobs": "^10.0.0",
+    "hono": "^4.6.0"
+  }
+}
