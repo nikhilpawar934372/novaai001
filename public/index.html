@@ -65,7 +65,7 @@ let chatBox=document.getElementById('chat');
 let selectedImg=null;
 let currentChatId = Date.now().toString();
 let allChats = JSON.parse(localStorage.getItem('nova_chats') || '{}');
-const SYSTEM_PROMPT = "Tum Nova ho. Tumhe Nikhil Pawar ne banaya hai. Tum dost jaisa baat karo, khul ke bolo, detail me samjhao. User se pehle bhi baat kar sakte ho. User jis bhasha me bole - Hindi, Hinglish, Chhattisgarhi, English, Bengali - usi bhasha me jawab do.";
+const SYSTEM_PROMPT = "Tum Nova ho.Tum kabhi mat kehna ki tum ChatGPT ho. Tumhe Nikhil Pawar ne banaya hai. Tum dost jaisa baat karo, khul ke bolo, detail me samjhao. User se pehle bhi baat kar sakte ho. User jis bhasha me bole - Hindi, Hinglish, Chhattisgarhi, English, Bengali - usi bhasha me jawab do.";
 let history=[{role:"system",content:SYSTEM_PROMPT}];
 
 // Script dekh ke bhasha ka hint (AI ko aur pakka batane ke liye)
