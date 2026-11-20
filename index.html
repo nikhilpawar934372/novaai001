@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>4-in-1 AI Studio</title>
+<style>
+body{font-family:sans-serif;background:#0f172a;color:white;padding:15px;text-align:center}
+.card{background:#1e293b;padding:15px;border-radius:15px;margin:10px 0}
+input,textarea,button{width:95%;padding:12px;margin:6px 0;border-radius:10px;border:none}
+button{background:#8b5cf6;color:white;font-weight:bold}
+img{max-width:100%;border-radius:12px;margin-top:10px}
+.tab{padding:10px;background:#334155;display:inline-block;border-radius:10px;margin:3px}
+.active{background:#8b5cf6}
+</style></head><body>
+<h2>🔥 4-in-1 AI Studio</h2>
+<input id="key" placeholder="Apni Gemini API Key yahan daal (AIza...)">
+<button onclick="saveKey()">Key Save Karo</button>
+
+<div><span class="tab active" onclick="show('edit',this)">📸 Photo Edit</span>
+<span class="tab" onclick="show('pdf',this)">📄 Photo to PDF</span>
+<span class="tab" onclick="show('chat',this)">💬 AI Chat</span></div>
+
+<div id="edit" class="card">
+<input type="file" id="img" accept="image/*">
+<input id="prompt" placeholder="Ex: isko cartoon banao, background badlo...">
+<button onclick="editImg()">✨ Edit Karo</button>
+<img id="out"><br><a id="dl" download="edited.png"><button>Download Karo</button></a>
+</div>
+
+<div id="pdf" class="card" style="display:none">
+<input type="file" id="pdfImgs" accept="image/*" multiple>
+<button onclick="makePDF()">📄 PDF Banao</button>
+<p id="pdfMsg"></p>
+</div>
+
+<div id="chat" class="card" style="display:none">
+<textarea id="q" placeholder="Kuch bhi pucho..."></textarea>
+<button onclick="ask()">Pucho</button>
+<p id="ans"></p>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script>
+let KEY=localStorage.getItem('gkey')||'';
+if(KEY) document.getElementById('key').value=KEY;
+function saveKey(){KEY=document.getElementById('key').value.trim();localStorage.setItem('gkey',KEY);alert('Key Save Ho Gayi!')}
+function show(id,el){['edit','pdf','chat'].forEach(x=>document.getElementById(x).style.display='none');document.getElementById(id).style.display='block';document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active')}
+async function editImg(){
+if(!KEY) return alert('Pehle Key daalo!');
+let f=document.getElementById('img').files[0]; if(!f) return alert('Photo chuno!');
+let p=document.getElementById('prompt').value||'Is photo ko sundar banao';
+let b64=await f.arrayBuffer().then(b=>{let s='';new Uint8Array(b).forEach(c=>s+=String.fromCharCode(c));return btoa(s)});
+let res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:p},{inline_data:{mime_type:f.type,data:b64}}]}]})});
+let d=await res.json();
+try{let img=d.candidates[0].content.parts.find(x=>x.inlineData).inlineData.data;document.getElementById('out').src='data:image/png;base64,'+img;document.getElementById('dl').href='data:image/png;base64,'+img;}catch(e){alert('Error: '+JSON.stringify(d).slice(0,300))}
+}
+async function ask(){
+if(!KEY) return alert('Pehle Key daalo!');
+let q=document.getElementById('q').value;
+let res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:q}]}]})});
+let d=await res.json(); document.getElementById('ans').innerText=d.candidates[0].content.parts[0].text;
+}
+async function makePDF(){
+let files=document.getElementById('pdfImgs').files; if(!files.length) return alert('Photo chuno!');
+const {jsPDF}=window.jspdf; let pdf=new jsPDF();
+for(let i=0;i<files.length;i++){let url=URL.createObjectURL(files[i]);let img=new Image();img.src=url;await new Promise(r=>img.onload=r);if(i>0) pdf.addPage();pdf.addImage(img,'JPEG',10,10,190,270);}
+pdf.save('photos.pdf'); document.getElementById('pdfMsg').innerText='PDF Ban Gaya! Download ho gaya!';
+}
+</script></body></html>
