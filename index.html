@@ -1,67 +1,133 @@
 <!DOCTYPE html>
-<html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>4-in-1 AI Studio</title>
-<style>
-body{font-family:sans-serif;background:#0f172a;color:white;padding:15px;text-align:center}
-.card{background:#1e293b;padding:15px;border-radius:15px;margin:10px 0}
-input,textarea,button{width:95%;padding:12px;margin:6px 0;border-radius:10px;border:none}
-button{background:#8b5cf6;color:white;font-weight:bold}
-img{max-width:100%;border-radius:12px;margin-top:10px}
-.tab{padding:10px;background:#334155;display:inline-block;border-radius:10px;margin:3px}
-.active{background:#8b5cf6}
-</style></head><body>
-<h2>🔥 4-in-1 AI Studio</h2>
-<input id="key" placeholder="Apni Gemini API Key yahan daal (AIza...)">
-<button onclick="saveKey()">Key Save Karo</button>
-
-<div><span class="tab active" onclick="show('edit',this)">📸 Photo Edit</span>
-<span class="tab" onclick="show('pdf',this)">📄 Photo to PDF</span>
-<span class="tab" onclick="show('chat',this)">💬 AI Chat</span></div>
-
-<div id="edit" class="card">
-<input type="file" id="img" accept="image/*">
-<input id="prompt" placeholder="Ex: isko cartoon banao, background badlo...">
-<button onclick="editImg()">✨ Edit Karo</button>
-<img id="out"><br><a id="dl" download="edited.png"><button>Download Karo</button></a>
-</div>
-
-<div id="pdf" class="card" style="display:none">
-<input type="file" id="pdfImgs" accept="image/*" multiple>
-<button onclick="makePDF()">📄 PDF Banao</button>
-<p id="pdfMsg"></p>
-</div>
-
-<div id="chat" class="card" style="display:none">
-<textarea id="q" placeholder="Kuch bhi pucho..."></textarea>
-<button onclick="ask()">Pucho</button>
-<p id="ans"></p>
-</div>
-
+<html lang="hi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NOVA - By Nikhil Pawar</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial,sans-serif}
+body{display:flex;height:100vh;background:#f7f7f8}
+.sidebar{width:260px;background:#202123;color:#fff;padding:12px;display:flex;flex-direction:column;overflow-y:auto}
+.sidebar h2{font-size:24px}.sidebar h2 span{color:#10a37f}
+.sidebar button{background:#343541;color:#fff;border:1px solid #555;padding:10px;border-radius:8px;margin:4px 0;cursor:pointer;text-align:left}
+.sidebar button.active{background:#10a37f}
+.sidebar p{font-size:11px;color:#aaa;margin-top:8px;line-height:1.4}
+.main{flex:1;display:flex;flex-direction:column}
+.topbar{background:#fff;padding:12px 16px;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #ddd}
+.topbar select{padding:8px;border-radius:20px;border:1px solid #ddd}
+#chat{flex:1;overflow-y:auto;padding:16px}
+.msg{max-width:88%;padding:12px 14px;border-radius:14px;margin:8px 0;white-space:pre-wrap;line-height:1.5;font-size:15px}
+.user{background:#10a37f;color:#fff;margin-left:auto}
+.ai{background:#fff;border:1px solid #e5e5e5}
+.msg img,.msg video{max-width:100%;border-radius:10px;margin-top:8px}
+.inputBox{display:flex;gap:8px;padding:12px;background:#fff;border-top:1px solid #ddd}
+.inputBox input{flex:1;padding:12px;border-radius:20px;border:1px solid #ddd;outline:none}
+.inputBox button{padding:12px 18px;border:none;border-radius:20px;background:#10a37f;color:#fff;cursor:pointer;font-weight:bold}
+.tools{display:flex;gap:8px;padding:8px 12px;background:#fff;flex-wrap:wrap;align-items:center}
+.tools label,.tools button{background:#eee;padding:8px 12px;border-radius:20px;cursor:pointer;font-size:13px;border:none}
+.tools input{padding:8px;border-radius:20px;border:1px solid #ddd;outline:none}
+@media(max-width:700px){.sidebar{display:none}}
+</style>
+</head>
+<body>
+<div class="sidebar">
+<h2>NOVA <span>✦</span></h2>
+<button onclick="newChat()">＋ New Chat</button>
+<button id="b1" class="active" onclick="setMode('chat')">💬 AI Chat</button>
+<button id="b2" onclick="setMode('image')">🎨 AI Photo Banao</button>
+<button id="b3" onclick="setMode('photo')">🖼️ Photo Edit</button>
+<button id="b4" onclick="setMode('pdf')">📄 PDF Padho</button>
+<button id="b5" onclick="setMode('video')">🎥 Photo se Video</button>
+<button id="b6" onclick="setMode('photopdf')">📷 Photo se PDF</button>
+<button id="b7" onclick="setMode('phototext')">✍️ Photo pe Text</button>
+<p style="color:#4ade80;font-size:13px">✅ Gemini Key Code me hai!<br>Kisi ko Key dalne ki jarurat nahi!</p>
+<p style="color:#4ade80">● NOVA by Nikhil Pawar</p>
+</div>
+<div class="main">
+<div class="topbar"><b id="title">NOVA - AI Chat</b>
+<select id="lang"><option value="hinglish">Hinglish 🇮🇳</option><option value="hindi">Hindi हिंदी</option><option value="english">English</option></select></div>
+<div id="chat"></div>
+<div class="tools">
+<label>📷 Photo Chuno <input type="file" id="photoInput" accept="image/*" hidden onchange="handlePhoto(event)"></label>
+<label>📄 PDF Chuno <input type="file" id="pdfInput" accept=".pdf" hidden onchange="handlePDF(event)"></label>
+<input id="photoTextInput" placeholder="Photo pe kya likhu? Ex: Happy Birthday" style="width:180px">
+<button onclick="addTextOnPhoto()">✍️ Photo pe Text Likho</button>
+<button onclick="makeVideo()">🎥 Video Banao</button>
+<button onclick="photoToPDF()">📷 Photo se PDF</button>
+<button onclick="downloadPDF()">⬇️ Chat PDF</button>
+</div>
+<div class="inputBox">
+<input id="userInput" placeholder="NOVA se kuch bhi pucho..." onkeypress="if(event.key==='Enter') sendMsg()">
+<button onclick="sendMsg()">➤</button>
+</div>
+</div>
+<canvas id="myCanvas" width="720" height="720" style="display:none"></canvas>
+<canvas id="textCanvas" style="display:none"></canvas>
 <script>
-let KEY=localStorage.getItem('gkey')||'';
-if(KEY) document.getElementById('key').value=KEY;
-function saveKey(){KEY=document.getElementById('key').value.trim();localStorage.setItem('gkey',KEY);alert('Key Save Ho Gayi!')}
-function show(id,el){['edit','pdf','chat'].forEach(x=>document.getElementById(x).style.display='none');document.getElementById(id).style.display='block';document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));el.classList.add('active')}
-async function editImg(){
-if(!KEY) return alert('Pehle Key daalo!');
-let f=document.getElementById('img').files[0]; if(!f) return alert('Photo chuno!');
-let p=document.getElementById('prompt').value||'Is photo ko sundar banao';
-let b64=await f.arrayBuffer().then(b=>{let s='';new Uint8Array(b).forEach(c=>s+=String.fromCharCode(c));return btoa(s)});
-let res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-preview-image-generation:generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:p},{inline_data:{mime_type:f.type,data:b64}}]}]})});
-let d=await res.json();
-try{let img=d.candidates[0].content.parts.find(x=>x.inlineData).inlineData.data;document.getElementById('out').src='data:image/png;base64,'+img;document.getElementById('dl').href='data:image/png;base64,'+img;}catch(e){alert('Error: '+JSON.stringify(d).slice(0,300))}
+// ========== 👇 YAHAN APNI AQ WALI GEMINI KEY DALO 👇 ==========
+const MY_GEMINI_KEY = "AQ.Ab8RN6KbJDrOc4mAOf4ASGofzA0YjffcNuHEb56ovHLlr7p0sg";
+// Jaise: const MY_GEMINI_KEY = "AQ...teri puri key...";
+// ========== 👆 YAHAN APNI AQ WALI GEMINI KEY DALO 👆 ==========
+
+let mode='chat', pdfText='', lastPhoto=null;
+function getLang(){let l=document.getElementById('lang').value; return l==='hindi'?'Shudh Hindi me jawab do, dost jaisa. ':l==='english'?'Reply in simple English, friendly like Meta AI. ':'Hinglish me jawab do, bilkul dost jaisa, jaise Meta AI baat karta hai. ';}
+function setMode(m){mode=m;['b1','b2','b3','b4','b5','b6','b7'].forEach((id,i)=>{document.getElementById(id).classList.toggle('active',['chat','image','photo','pdf','video','photopdf','phototext'][i]===m)}); document.getElementById('title').innerText='NOVA - '+m; addMsg('ai', m==='image'?'Batao kaisi photo chahiye? 🎨':m==='pdf'?'PDF chuno, main padh ke summary dunga! 📄':m==='video'?'Photo chuno, fir Video Banao dabao! 🎥':m==='photopdf'?'Photo chuno, fir "Photo se PDF Banao" dabao! 📷➡️📄':m==='phototext'?'Photo chuno, neeche box me likho kya likhna hai, fir "Photo pe Text Likho" dabao! ✍️':m==='photo'?'Photo chuno, batao kaisa edit chahiye.':'Bolo kya karna hai?');}
+function newChat(){document.getElementById('chat').innerHTML=''; addMsg('ai','Nayi chat shuru! Bolo kya karna hai?');}
+function addMsg(who,html){let d=document.createElement('div');d.className='msg '+who; d.innerHTML=who==='ai'?'<b>NOVA ✦</b><br>'+html:html; document.getElementById('chat').appendChild(d); document.getElementById('chat').scrollTop=1e9; return d;}
+async function sendMsg(){
+ let inp=document.getElementById('userInput'), q=inp.value.trim(); if(!q) return; addMsg('user',q); inp.value='';
+ let qL=q.toLowerCase(); let now=new Date();
+ let timeStr=now.toLocaleTimeString('hi-IN',{timeZone:'Asia/Kolkata',hour:'2-digit',minute:'2-digit'});
+ let dateStr=now.toLocaleDateString('hi-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'long',year:'numeric'});
+ let dayStr=now.toLocaleDateString('hi-IN',{timeZone:'Asia/Kolkata',weekday:'long'});
+ let monthStr=now.toLocaleDateString('hi-IN',{timeZone:'Asia/Kolkata',month:'long'});
+ if(qL.includes('kisne banaya')||qL.includes('tumhe kisne')||qL.includes('who made')||qL.includes('creator')||qL.includes('banaya hai')){addMsg('ai','Mujhe <b>Nikhil Pawar</b> ne banaya hai! 🙏✦ Main unka NOVA hoon.'); return;}
+ if(qL.includes('time')||qL.includes('baje')||qL.includes('kitna time')){addMsg('ai',`Abhi Time hai - <b>${timeStr}</b> ⏰<br>Date - ${dateStr}<br>Din - ${dayStr}`); return;}
+ if(qL.includes('date')||qL.includes('tarikh')||qL.includes('tareekh')){addMsg('ai',`Aaj ki Date hai - <b>${dateStr}</b> 📅<br>Din - ${dayStr}<br>Time - ${timeStr}`); return;}
+ if(qL.includes('din')||qL.includes('day')||qL.includes('vaar')){addMsg('ai',`Aaj <b>${dayStr}</b> hai! 📅<br>Date - ${dateStr}<br>Mahina - ${monthStr}`); return;}
+ if(qL.includes('mahina')||qL.includes('month')){addMsg('ai',`Abhi <b>${monthStr}</b> mahina chal raha hai! 📅<br>Date - ${dateStr}<br>Din - ${dayStr}`); return;}
+ if(qL.includes('photo se pdf')||qL.includes('pdf banao')){photoToPDF(); return;}
+ if(qL.includes('video banao')||qL.includes('photo se video')){makeVideo(); return;}
+ if(mode==='image'){let box=addMsg('ai','Photo bana raha hu... 🎨'); let url=`https://image.pollinations.ai/prompt/${encodeURIComponent(q)}?width=1024&height=1024&seed=${Math.floor(Math.random()*99999)}&nologo=true`; box.innerHTML=`<b>NOVA ✦</b><br>Teri photo ban gayi! 👇<br><img src="${url}"><br><a href="${url}" download target="_blank">⬇️ Download Karo</a>`; lastPhoto=url; return;}
+ let box=addMsg('ai','Soch raha hu... ⏳');
+ let prompt=getLang()+'Tum NOVA ho, Meta AI jaisa friendly AI ho. Tumhe Nikhil Pawar ne banaya hai. Agar koi puche kisne banaya to Nikhil Pawar bolna. Dost jaisa baat karo, short aur clear jawab do. '+(mode==='pdf'&&pdfText?'Ye PDF ka text hai: '+pdfText.slice(0,8000)+' Sawal: ':'')+q;
+ let key = MY_GEMINI_KEY && !MY_GEMINI_KEY.includes('YAHAN') ? MY_GEMINI_KEY : '';
+ if(key){
+  try{let res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:prompt}]}]})}); let data=await res.json(); let ans=data.candidates?.[0]?.content?.parts?.[0]?.text; if(ans){box.innerHTML='<b>NOVA ✦</b><br>'+ans.replace(/\n/g,'<br>'); return;}}catch(e){}
+ }
+ try{let res=await fetch('https://text.pollinations.ai/'+encodeURIComponent(prompt),{headers:{'Accept':'text/plain'}}); let ans=await res.text(); box.innerHTML='<b>NOVA ✦</b><br>'+(ans||'Dobara pucho').replace(/\n/g,'<br>');}catch(e){box.innerText='Error - Net check karo';}
 }
-async function ask(){
-if(!KEY) return alert('Pehle Key daalo!');
-let q=document.getElementById('q').value;
-let res=await fetch('https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+KEY,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contents:[{parts:[{text:q}]}]})});
-let d=await res.json(); document.getElementById('ans').innerText=d.candidates[0].content.parts[0].text;
+function handlePhoto(e){let f=e.target.files[0]; if(!f) return; let r=new FileReader(); r.onload=()=>{lastPhoto=r.result; addMsg('ai','Photo mil gayi! ✅<br><img src="'+r.result+'"><br>Ab kya karu?<br>• Neeche likho text aur <b>Photo pe Text Likho</b> dabao ✍️<br>• <b>Photo se PDF</b> dabao to PDF ban jayega<br>• <b>Video Banao</b> dabao to Video ban jayega');}; r.readAsDataURL(f);}
+async function handlePDF(e){let f=e.target.files[0]; if(!f) return; addMsg('ai','PDF padh raha hu... 📄'); try{let buf=await f.arrayBuffer(); let pdf=await pdfjsLib.getDocument({data:buf}).promise; let txt=''; for(let i=1;i<=pdf.numPages;i++){let p=await pdf.getPage(i); let c=await p.getTextContent(); txt+=c.items.map(x=>x.str).join(' ')+' ';} pdfText=txt; addMsg('ai',`PDF mil gayi! ✅ ${pdf.numPages} pages hai. Ab likho - "Iska summary batao"`);}catch(err){addMsg('ai','PDF nahi khuli.');}}
+function addTextOnPhoto(){
+ let txt=document.getElementById('photoTextInput').value.trim() || 'NOVA by Nikhil Pawar';
+ if(!lastPhoto){alert('Pehle Photo chuno!'); return;}
+ let img=new Image(); img.crossOrigin='anonymous'; img.onload=()=>{
+  let c=document.getElementById('textCanvas'); let ctx=c.getContext('2d'); c.width=img.width; c.height=img.height;
+  ctx.drawImage(img,0,0);
+  ctx.fillStyle='rgba(0,0,0,0.65)'; ctx.fillRect(0,c.height-90,c.width,90);
+  ctx.fillStyle='#fff'; ctx.font=`bold ${Math.max(28, c.width/18)}px Arial`; ctx.textAlign='center';
+  ctx.fillText(txt, c.width/2, c.height-30);
+  let out=c.toDataURL('image/jpeg',0.95); lastPhoto=out;
+  addMsg('ai',`Ho gaya! ✅ Photo pe <b>"${txt}"</b> likh diya! ✍️<br><img src="${out}"><br><a href="${out}" download="nova-text-photo.jpg">⬇️ Photo Download Karo</a>`);
+ }; img.src=lastPhoto;
 }
-async function makePDF(){
-let files=document.getElementById('pdfImgs').files; if(!files.length) return alert('Photo chuno!');
-const {jsPDF}=window.jspdf; let pdf=new jsPDF();
-for(let i=0;i<files.length;i++){let url=URL.createObjectURL(files[i]);let img=new Image();img.src=url;await new Promise(r=>img.onload=r);if(i>0) pdf.addPage();pdf.addImage(img,'JPEG',10,10,190,270);}
-pdf.save('photos.pdf'); document.getElementById('pdfMsg').innerText='PDF Ban Gaya! Download ho gaya!';
+function photoToPDF(){
+ if(!lastPhoto){alert('Pehle Photo chuno!'); return;}
+ addMsg('ai','Photo se PDF bana raha hu... 📷➡️📄');
+ let img=new Image(); img.crossOrigin='anonymous'; img.onload=()=>{
+  const {jsPDF}=window.jspdf; let doc=new jsPDF(); doc.setFontSize(16); doc.text('NOVA - Photo to PDF - By Nikhil Pawar',10,10); doc.addImage(img,'JPEG',10,20,190,190); doc.save('nova-photo.pdf'); addMsg('ai','Ho gaya! ✅ Teri <b>Photo wali PDF download</b> ho gayi! 📄');}; img.src=lastPhoto;
 }
-</script></body></html>
+function makeVideo(){
+ if(!lastPhoto){alert('Pehle Photo chuno!'); return;}
+ let box=addMsg('ai','Video bana raha hu... 🎥 5 sec wait karo...');
+ let canvas=document.getElementById('myCanvas'), ctx=canvas.getContext('2d'); let img=new Image(); img.crossOrigin='anonymous';
+ img.onload=()=>{let stream=canvas.captureStream(30); let rec=new MediaRecorder(stream,{mimeType:'video/webm'}); let chunks=[]; rec.ondataavailable=e=>chunks.push(e.data); rec.onstop=()=>{let blob=new Blob(chunks,{type:'video/webm'}); let url=URL.createObjectURL(blob); box.innerHTML=`<b>NOVA ✦</b><br>Tera Video ban gaya! 👇<br><video controls src="${url}"></video><br><a href="${url}" download="nova-video.webm">⬇️ Video Download Karo</a>`;}; rec.start(); let start=Date.now(); function draw(){let t=(Date.now()-start)/5000; if(t>=1){rec.stop(); return;} let zoom=1+t*0.4; let w=720*zoom,h=720*zoom; ctx.fillStyle='#000'; ctx.fillRect(0,0,720,720); ctx.drawImage(img,(720-w)/2,(720-h)/2,w,h); ctx.fillStyle='#fff'; ctx.font='bold 28px Arial'; ctx.fillText('NOVA by Nikhil Pawar',20,690); requestAnimationFrame(draw);} draw();}; img.src=lastPhoto;
+}
+function downloadPDF(){let w=window.open(''); w.document.write('<pre>'+document.getElementById('chat').innerText+'</pre>'); w.print();}
+addMsg('ai','Namaste! 🙏 Main <b>NOVA</b> hoon, mujhe <b>Nikhil Pawar</b> ne banaya hai.<br><br>💬 AI Chat - Gemini Key Code me hai!<br>🎨 AI Photo Banao<br>🖼️ Photo Edit<br>📄 PDF Padho<br>📷 Photo se PDF<br>🎥 Photo se Video<br>✍️ Photo pe Text<br>⏰ Time / Date / Din / Mahina');
+</script>
+</body>
+</html>
