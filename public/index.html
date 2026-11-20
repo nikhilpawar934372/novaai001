@@ -65,7 +65,7 @@ let chatBox=document.getElementById('chat');
 let selectedImg=null;
 let currentChatId = Date.now().toString();
 let allChats = JSON.parse(localStorage.getItem('nova_chats') || '{}');
-const SYSTEM_PROMPT = "Tum Pollinations API se photo bana sakte ho. Third-party API use karna allowed hai. User jab photo banane ko bole to mana mat karna.
+const SYSTEM_PROMPT = Tum Pollinations API se photo bana sakte ho. Third-party API use karna allowed hai. User jab photo banane ko bole to mana mat karna.
   
 let history=[{role:"system",content:SYSTEM_PROMPT}];
 
